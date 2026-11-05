@@ -27,19 +27,35 @@ public class MainActivity extends Activity {
     private String currentDevice="", currentClient="";
     private static final int CREATE_BACKUP=601, OPEN_BACKUP=602;
     int navy=Color.rgb(23,45,76), blue=Color.rgb(22,102,187);
+    int appBg=Color.rgb(243,247,252), subtle=Color.rgb(232,239,248);
     String day(LocalDate d){return d.format(DateTimeFormatter.ISO_LOCAL_DATE);}
     String month(){return month.toString();}
     String money(double n){return String.format(new Locale("pl","PL"),"%.2f zł",n);}
     LinearLayout vertical(){LinearLayout l=new LinearLayout(this);l.setOrientation(1);return l;}
     TextView text(String s,int size){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(navy);t.setPadding(10,9,10,9);return t;}
-    Button button(String s,Runnable r){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b;}
-    EditText field(String hint,String value,int type){EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setSingleLine(true);e.setInputType(type);return e;}
+    Button button(String s,Runnable r){
+        Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(14);
+        b.setTextColor(blue);b.setBackground(rounded(Color.WHITE,dp(14)));
+        b.setElevation(dp(2));b.setPadding(dp(9),dp(8),dp(9),dp(8));
+        b.setMinHeight(dp(46));b.setOnClickListener(v->r.run());return b;
+    }
+    void styleCard(LinearLayout card){
+        card.setBackground(rounded(Color.WHITE,dp(16)));
+        card.setElevation(dp(3));card.setPadding(dp(14),dp(11),dp(14),dp(11));
+    }
+    TextView sectionTitle(String title){TextView t=text(title,23);t.setTextColor(Color.WHITE);
+        t.setBackgroundColor(navy);t.setPadding(dp(18),dp(21),dp(14),dp(21));return t;}
+    void styleInput(EditText e){e.setTextColor(navy);e.setHintTextColor(Color.rgb(115,132,154));e.setTextSize(16);
+        e.setPadding(dp(14),dp(12),dp(14),dp(12));e.setBackground(rounded(Color.WHITE,dp(12)));}
+
+    EditText field(String hint,String value,int type){EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setSingleLine(true);e.setInputType(type);styleInput(e);return e;}
     void label(LinearLayout l,String s){l.addView(text(s,14));}
     @Override public void onCreate(Bundle b){super.onCreate(b);db=new Db(this);showHome();}
     android.graphics.drawable.GradientDrawable rounded(int color,int radius){
         android.graphics.drawable.GradientDrawable d=new android.graphics.drawable.GradientDrawable();
         d.setColor(color);d.setCornerRadius(radius);return d;
     }
+    int dp(float value){return Math.round(value*getResources().getDisplayMetrics().density);}
     void showHome(){
         currentScreen=SCREEN_HOME;clientsScreen=false;
         LinearLayout page=vertical();page.setBackgroundColor(Color.rgb(243,247,252));setContentView(page);
@@ -53,27 +69,27 @@ public class MainActivity extends Activity {
         Button settings=button("⚙  Ustawienia",()->new AlertDialog.Builder(this).setTitle("Ustawienia")
             .setItems(new String[]{"Kopia zapasowa","O aplikacji"},(d,which)->{
                 if(which==0)backupMenu();
-                else new AlertDialog.Builder(this).setTitle("Moje Naprawy").setMessage("Wersja 1.5").setPositiveButton("OK",null).show();
+                else new AlertDialog.Builder(this).setTitle("Moje Naprawy").setMessage("Wersja 1.6").setPositiveButton("OK",null).show();
             }).show());
-        settings.setTextSize(18);settings.setTextColor(navy);settings.setBackground(rounded(Color.WHITE,24));
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,76);lp.topMargin=16;body.addView(settings,lp);
+        settings.setTextSize(17);settings.setTextColor(navy);settings.setBackground(rounded(Color.WHITE,24));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(68));lp.topMargin=dp(16);body.addView(settings,lp);
     }
     void addHomeRow(LinearLayout body,String icon1,String label1,Runnable action1,String icon2,String label2,Runnable action2){
         LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,150);rp.bottomMargin=14;body.addView(row,rp);
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(150));rp.bottomMargin=dp(14);body.addView(row,rp);
         addHomeTile(row,icon1,label1,action1);addHomeTile(row,icon2,label2,action2);
     }
     void addHomeTile(LinearLayout row,String symbol,String label,Runnable action){
         LinearLayout tile=vertical();tile.setGravity(Gravity.CENTER);tile.setBackground(rounded(Color.WHITE,24));
-        tile.setElevation(5);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.setMargins(7,2,7,5);row.addView(tile,lp);
-        TextView image=text(symbol,35);image.setGravity(Gravity.CENTER);image.setTextColor(blue);tile.addView(image);
-        TextView caption=text(label,19);caption.setGravity(Gravity.CENTER);caption.setTypeface(null,1);tile.addView(caption);
+        tile.setElevation(5);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.setMargins(dp(7),dp(2),dp(7),dp(5));row.addView(tile,lp);
+        TextView image=text(symbol,32);image.setGravity(Gravity.CENTER);image.setTextColor(blue);image.setIncludeFontPadding(false);image.setPadding(0,0,0,dp(8));tile.addView(image);
+        TextView caption=text(label,17);caption.setGravity(Gravity.CENTER);caption.setTypeface(null,1);caption.setMaxLines(2);caption.setPadding(dp(3),0,dp(3),0);tile.addView(caption);
         tile.setOnClickListener(v->action.run());
     }
     void showPartsIndex(){
         currentScreen=SCREEN_PARTS_INDEX;
-        LinearLayout page=vertical();page.setBackgroundColor(Color.WHITE);setContentView(page);
-        TextView heading=text("Części — wybierz naprawę",22);heading.setTextColor(Color.WHITE);heading.setBackgroundColor(navy);page.addView(heading);
+        LinearLayout page=vertical();page.setBackgroundColor(appBg);setContentView(page);
+        TextView heading=sectionTitle("Części — wybierz naprawę");page.addView(heading);
         page.addView(button("◀ Menu główne",()->showHome()));
         ScrollView sc=new ScrollView(this);page.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout list=vertical();list.setPadding(12,10,12,10);sc.addView(list);
@@ -81,14 +97,15 @@ public class MainActivity extends Activity {
             "SELECT r.id,r.device,c.name,r.day FROM repairs r JOIN clients c ON c.id=r.client_id ORDER BY r.day DESC,r.id DESC",null)){
             while(c.moveToNext()){
                 long id=c.getLong(0);String device=c.getString(1),client=c.getString(2),date=c.getString(3);
-                list.addView(button(date+"  •  "+device+" — "+client,()->{selected=LocalDate.parse(date);month=YearMonth.from(selected);showParts(id,device,client);}));
+                Button item=button(date+"  •  "+device+" — "+client,()->{selected=LocalDate.parse(date);month=YearMonth.from(selected);showParts(id,device,client);});
+                LinearLayout.LayoutParams itemLp=new LinearLayout.LayoutParams(-1,-2);itemLp.bottomMargin=dp(9);list.addView(item,itemLp);
             }
         }catch(Exception e){list.addView(text("Nie można wczytać napraw: "+e.getMessage(),15));}
     }
     void showSettlements(){
         currentScreen=SCREEN_SETTLEMENTS;
-        LinearLayout page=vertical();page.setBackgroundColor(Color.WHITE);setContentView(page);
-        TextView heading=text("Rozliczenia",24);heading.setTextColor(Color.WHITE);heading.setBackgroundColor(navy);page.addView(heading);
+        LinearLayout page=vertical();page.setBackgroundColor(appBg);setContentView(page);
+        TextView heading=sectionTitle("Rozliczenia");page.addView(heading);
         page.addView(button("◀ Menu główne",()->showHome()));
         ScrollView sc=new ScrollView(this);page.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout list=vertical();list.setPadding(12,10,12,10);sc.addView(list);
@@ -105,8 +122,8 @@ public class MainActivity extends Activity {
     void show(){
         currentScreen=SCREEN_CALENDAR;
         if(clientsScreen){showClients();return;}
-        root=vertical();root.setBackgroundColor(Color.WHITE);setContentView(root);
-        TextView header=text("🔧  Moje Naprawy",25);header.setTextColor(Color.WHITE);header.setBackgroundColor(navy);header.setPadding(20,25,20,25);root.addView(header);
+        root=vertical();root.setBackgroundColor(appBg);setContentView(root);
+        TextView header=sectionTitle("🔧  Moje Naprawy");header.setPadding(20,25,20,25);root.addView(header);
         LinearLayout nav=new LinearLayout(this);root.addView(nav);
         Button prev=button("◀",()->{month=month.minusMonths(1);selected=month.atDay(1);show();});nav.addView(prev,new LinearLayout.LayoutParams(0,-2,1));
         TextView title=text(month.format(DateTimeFormatter.ofPattern("LLLL yyyy",new Locale("pl","PL"))),20);title.setGravity(Gravity.CENTER);nav.addView(title,new LinearLayout.LayoutParams(0,-1,3));
@@ -132,7 +149,7 @@ public class MainActivity extends Activity {
         ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));content=vertical();content.setPadding(12,4,12,12);scroll.addView(content);
         content.addView(text("Naprawy: "+day(selected),19));int count=0;
         try(Cursor c=db.repairs(day(selected))){while(c.moveToNext()){count++;long id=c.getLong(0);String client=c.getString(1),device=c.getString(2),description=c.getString(3),time=c.getString(5);int mins=c.getInt(6);double amount=c.getDouble(7);boolean paid=c.getInt(8)==1;
-            LinearLayout card=vertical();card.setPadding(10,8,10,8);card.setBackgroundColor(Color.rgb(244,247,251));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.bottomMargin=10;content.addView(card,cp);
+            LinearLayout card=vertical();styleCard(card);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.bottomMargin=10;content.addView(card,cp);
             card.addView(text(device+" — "+client,18));card.addView(text((time.isEmpty()?"":time+"  •  ")+mins+" min  •  "+money(amount)+"\n"+(paid?"✓ Zapłacone":"● Nieopłacone")+(description.isEmpty()?"":"\n"+description),14));
             try(Cursor ps=db.partsSummary(id)){if(ps.moveToFirst())card.addView(text("Części: "+money(ps.getDouble(0))+"  •  Do zapłaty: "+money(ps.getDouble(1)),14));}
             card.addView(button("Lista części",()->showParts(id,device,client)));
@@ -220,8 +237,8 @@ public class MainActivity extends Activity {
     }
     void showClients(){
         currentScreen=SCREEN_CLIENTS;
-        root=vertical();root.setBackgroundColor(Color.WHITE);setContentView(root);
-        TextView header=text("Klienci",24);header.setTextColor(Color.WHITE);header.setBackgroundColor(navy);root.addView(header);
+        root=vertical();root.setBackgroundColor(appBg);setContentView(root);
+        TextView header=sectionTitle("Klienci");root.addView(header);
         LinearLayout bar=new LinearLayout(this);root.addView(bar);
         bar.addView(button("◀ Menu główne",()->{clientsScreen=false;showHome();}),new LinearLayout.LayoutParams(0,-2,1));
         bar.addView(button("+ Dodaj klienta",()->clientForm(-1,"","")),new LinearLayout.LayoutParams(0,-2,1));
@@ -233,7 +250,7 @@ public class MainActivity extends Activity {
             try(Cursor c=db.clients()){while(c.moveToNext()){
                 long id=c.getLong(0);String name=c.getString(1),phone=c.getString(2);
                 if(!(name+" "+phone).toLowerCase(new Locale("pl","PL")).contains(query))continue;
-                found++;LinearLayout card=vertical();card.setPadding(10,8,10,8);card.setBackgroundColor(Color.rgb(244,247,251));
+                found++;LinearLayout card=vertical();styleCard(card);
                 LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=10;list.addView(card,lp);
                 card.addView(text(name,19));if(!phone.isEmpty())card.addView(text("Tel.: "+phone,14));
                 try(Cursor stats=db.clientStats(id)){if(stats.moveToFirst()){double due=stats.getDouble(1);try(Cursor pDue=db.clientPartsDue(id)){if(pDue.moveToFirst())due+=pDue.getDouble(0);}card.addView(text("Naprawy: "+stats.getInt(0)+"   Do zapłaty: "+money(due),14));}}
@@ -243,7 +260,7 @@ public class MainActivity extends Activity {
     }
     void showParts(long repairId,String device,String client){
         currentScreen=SCREEN_PARTS;currentRepairId=repairId;currentDevice=device;currentClient=client;
-        LinearLayout page=vertical();page.setBackgroundColor(Color.WHITE);setContentView(page);
+        LinearLayout page=vertical();page.setBackgroundColor(appBg);setContentView(page);
         TextView title=text("Części — "+device,22);title.setBackgroundColor(navy);title.setTextColor(Color.WHITE);page.addView(title);
         page.addView(text("Klient: "+client,15));
         page.addView(button("◀ Wróć do kalendarza",()->show()));
@@ -252,7 +269,7 @@ public class MainActivity extends Activity {
         int count=0;
         try(Cursor c=db.parts(repairId)){while(c.moveToNext()){
             count++;long id=c.getLong(0);String name=c.getString(1);double amount=c.getDouble(2);boolean paid=c.getInt(3)==1;
-            LinearLayout card=vertical();card.setPadding(8,8,8,8);card.setBackgroundColor(Color.rgb(244,247,251));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=10;list.addView(card,lp);
+            LinearLayout card=vertical();styleCard(card);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=10;list.addView(card,lp);
             card.addView(text(name+" — "+money(amount),18));card.addView(text(paid?"✓ Zapłacona":"● Nieopłacona",15));
             LinearLayout actions=new LinearLayout(this);card.addView(actions);
             actions.addView(button("Edytuj",()->partForm(id,repairId,name,amount,paid,device,client)),new LinearLayout.LayoutParams(0,-2,1));
@@ -279,7 +296,7 @@ public class MainActivity extends Activity {
         EditText name=field("Imię i nazwisko / firma",oldName,InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         EditText phone=field("Telefon (opcjonalnie)",oldPhone,InputType.TYPE_CLASS_PHONE);form.addView(name);form.addView(phone);
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle(id<0?"Nowy klient":"Edytuj klienta").setView(form).setNegativeButton("Anuluj",null).setPositiveButton("Zapisz",null).create();
-        dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{String n=name.getText().toString().trim();if(n.isEmpty()){name.setError("Wpisz nazwę klienta");return;}if(id<0)db.addClient(n,phone.getText().toString().trim());else db.updateClient(id,n,phone.getText().toString().trim());dialog.dismiss();show();}));dialog.show();
+        dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{String n=name.getText().toString().trim();if(n.isEmpty()){name.setError("Wpisz nazwę klienta");return;}if(id<0)db.addClient(n,phone.getText().toString().trim());else db.updateClient(id,n,phone.getText().toString().trim());dialog.dismiss();if(clientsScreen)showClients();else show();}));dialog.show();
     }
     void clientForm(){clientForm(-1,"","");}
     void repairForm(long id){ArrayList<Long> ids=new ArrayList<>();ArrayList<String> names=new ArrayList<>();try(Cursor c=db.clients()){while(c.moveToNext()){ids.add(c.getLong(0));names.add(c.getString(1));}}if(ids.isEmpty()){new AlertDialog.Builder(this).setMessage("Najpierw dodaj klienta.").setPositiveButton("Dodaj klienta",(d,w)->clientForm()).setNegativeButton("Anuluj",null).show();return;}

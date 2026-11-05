@@ -33,3 +33,11 @@ W kalendarzu wybierz **Kopia zapasowa — eksport / import**. Eksport tworzy pli
 
 ## Wersja 1.4 — przycisk Wstecz i ikona
 Przycisk systemowy Wstecz z ekranu części wraca do kalendarza z listą napraw, z listy klientów do kalendarza. Na ekranie głównym pokazuje okno potwierdzenia zamknięcia. Nowa ikona aplikacji znajduje się w `res/mipmap-*`. Zwiększono `versionCode` do 5.
+
+
+Poprawka menu: kafelki i przycisk ustawień mają wysokość w dp, teksty są widoczne pod ikonami.
+
+
+## Wersja 1.6 — wspólny styl
+Wspólny granatowy nagłówek, jasne tło, białe zaokrąglone karty i przyciski oraz jednolite pola formularzy. Zachowano strukturę bazy, eksport/import i funkcje wersji 1.5.
+Projekt wymaga kompilacji i testu na telefonie. Przed odinstalowaniem starszej wersji wyeksportuj kopię danych poza telefon.
