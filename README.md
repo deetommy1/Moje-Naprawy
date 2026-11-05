@@ -29,3 +29,11 @@ W widoku dnia przy każdej naprawie przycisk „Lista części”. Można dodać
 
 ## Wersja 1.3 — kopie zapasowe
 W kalendarzu wybierz **Kopia zapasowa — eksport / import**. Eksport tworzy plik JSON zawierający klientów, naprawy, części oraz statusy płatności. Import zastępuje zawartość lokalnej bazy; najpierw sprawdza format i spójność referencji, a zapis wykonuje w transakcji SQLite. Używa systemowego wyboru pliku Androida (SAF), nie wymaga uprawnień do pamięci. Plik zawiera dane klientów w postaci niezaszyfrowanej — przechowuj go prywatnie.
+
+
+## Wersja 1.4 — przycisk Wstecz i ikona
+Przycisk systemowy Wstecz z ekranu części wraca do kalendarza z listą napraw, z listy klientów do kalendarza. Na ekranie głównym pokazuje okno potwierdzenia zamknięcia. Nowa ikona aplikacji znajduje się w `res/mipmap-*`. Zwiększono `versionCode` do 5.
+
+
+## Wersja 1.5
+Nowy ekran startowy z kafelkami: Kalendarz, Klienci, Naprawy, Części, Rozliczenia, Kopia zapasowa, Ustawienia. Przycisk Wstecz na ekranie startowym wyświetla potwierdzenie zamknięcia. Zachowano format kopii i schemat bazy danych.

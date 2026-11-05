@@ -20,6 +20,11 @@ import java.util.*;
 public class MainActivity extends Activity {
     Db db; LinearLayout root,content; YearMonth month=YearMonth.now(); LocalDate selected=LocalDate.now();
     boolean clientsScreen=false;
+    // Navigation state: the calendar is the root screen.
+    private static final int SCREEN_CALENDAR=0, SCREEN_CLIENTS=1, SCREEN_PARTS=2, SCREEN_HOME=3, SCREEN_SETTLEMENTS=4, SCREEN_PARTS_INDEX=5;
+    private int currentScreen=SCREEN_CALENDAR;
+    private long currentRepairId=-1;
+    private String currentDevice="", currentClient="";
     private static final int CREATE_BACKUP=601, OPEN_BACKUP=602;
     int navy=Color.rgb(23,45,76), blue=Color.rgb(22,102,187);
     String day(LocalDate d){return d.format(DateTimeFormatter.ISO_LOCAL_DATE);}
@@ -30,8 +35,75 @@ public class MainActivity extends Activity {
     Button button(String s,Runnable r){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b;}
     EditText field(String hint,String value,int type){EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setSingleLine(true);e.setInputType(type);return e;}
     void label(LinearLayout l,String s){l.addView(text(s,14));}
-    @Override public void onCreate(Bundle b){super.onCreate(b);db=new Db(this);show();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);db=new Db(this);showHome();}
+    android.graphics.drawable.GradientDrawable rounded(int color,int radius){
+        android.graphics.drawable.GradientDrawable d=new android.graphics.drawable.GradientDrawable();
+        d.setColor(color);d.setCornerRadius(radius);return d;
+    }
+    void showHome(){
+        currentScreen=SCREEN_HOME;clientsScreen=false;
+        LinearLayout page=vertical();page.setBackgroundColor(Color.rgb(243,247,252));setContentView(page);
+        TextView title=text("🔧  Moje Naprawy",25);
+        title.setTextColor(Color.WHITE);title.setBackgroundColor(navy);title.setPadding(22,32,20,32);page.addView(title);
+        ScrollView sc=new ScrollView(this);page.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout body=vertical();body.setPadding(14,22,14,18);sc.addView(body);
+        addHomeRow(body,"▦","Kalendarz",()->show(),"♟","Klienci",()->{clientsScreen=true;showClients();});
+        addHomeRow(body,"⚒","Naprawy",()->show(),"▣","Części",()->showPartsIndex());
+        addHomeRow(body,"●","Rozliczenia",()->showSettlements(),"☁","Kopia zapasowa",()->backupMenu());
+        Button settings=button("⚙  Ustawienia",()->new AlertDialog.Builder(this).setTitle("Ustawienia")
+            .setItems(new String[]{"Kopia zapasowa","O aplikacji"},(d,which)->{
+                if(which==0)backupMenu();
+                else new AlertDialog.Builder(this).setTitle("Moje Naprawy").setMessage("Wersja 1.5").setPositiveButton("OK",null).show();
+            }).show());
+        settings.setTextSize(18);settings.setTextColor(navy);settings.setBackground(rounded(Color.WHITE,24));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,76);lp.topMargin=16;body.addView(settings,lp);
+    }
+    void addHomeRow(LinearLayout body,String icon1,String label1,Runnable action1,String icon2,String label2,Runnable action2){
+        LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,150);rp.bottomMargin=14;body.addView(row,rp);
+        addHomeTile(row,icon1,label1,action1);addHomeTile(row,icon2,label2,action2);
+    }
+    void addHomeTile(LinearLayout row,String symbol,String label,Runnable action){
+        LinearLayout tile=vertical();tile.setGravity(Gravity.CENTER);tile.setBackground(rounded(Color.WHITE,24));
+        tile.setElevation(5);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.setMargins(7,2,7,5);row.addView(tile,lp);
+        TextView image=text(symbol,35);image.setGravity(Gravity.CENTER);image.setTextColor(blue);tile.addView(image);
+        TextView caption=text(label,19);caption.setGravity(Gravity.CENTER);caption.setTypeface(null,1);tile.addView(caption);
+        tile.setOnClickListener(v->action.run());
+    }
+    void showPartsIndex(){
+        currentScreen=SCREEN_PARTS_INDEX;
+        LinearLayout page=vertical();page.setBackgroundColor(Color.WHITE);setContentView(page);
+        TextView heading=text("Części — wybierz naprawę",22);heading.setTextColor(Color.WHITE);heading.setBackgroundColor(navy);page.addView(heading);
+        page.addView(button("◀ Menu główne",()->showHome()));
+        ScrollView sc=new ScrollView(this);page.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout list=vertical();list.setPadding(12,10,12,10);sc.addView(list);
+        try(Cursor c=db.getReadableDatabase().rawQuery(
+            "SELECT r.id,r.device,c.name,r.day FROM repairs r JOIN clients c ON c.id=r.client_id ORDER BY r.day DESC,r.id DESC",null)){
+            while(c.moveToNext()){
+                long id=c.getLong(0);String device=c.getString(1),client=c.getString(2),date=c.getString(3);
+                list.addView(button(date+"  •  "+device+" — "+client,()->{selected=LocalDate.parse(date);month=YearMonth.from(selected);showParts(id,device,client);}));
+            }
+        }catch(Exception e){list.addView(text("Nie można wczytać napraw: "+e.getMessage(),15));}
+    }
+    void showSettlements(){
+        currentScreen=SCREEN_SETTLEMENTS;
+        LinearLayout page=vertical();page.setBackgroundColor(Color.WHITE);setContentView(page);
+        TextView heading=text("Rozliczenia",24);heading.setTextColor(Color.WHITE);heading.setBackgroundColor(navy);page.addView(heading);
+        page.addView(button("◀ Menu główne",()->showHome()));
+        ScrollView sc=new ScrollView(this);page.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout list=vertical();list.setPadding(12,10,12,10);sc.addView(list);
+        double all=0,due=0;
+        try(Cursor c=db.clients()){while(c.moveToNext()){
+            long id=c.getLong(0);String name=c.getString(1);double clientDue=0;
+            try(Cursor r=db.clientStats(id)){if(r.moveToFirst())clientDue+=r.getDouble(1);}
+            try(Cursor parts=db.clientPartsDue(id)){if(parts.moveToFirst())clientDue+=parts.getDouble(0);}
+            due+=clientDue;
+            if(clientDue>0.005)list.addView(text(name+" — do zapłaty: "+money(clientDue),17));
+        }}
+        list.addView(text("Łącznie do zapłaty: "+money(due),21));
+    }
     void show(){
+        currentScreen=SCREEN_CALENDAR;
         if(clientsScreen){showClients();return;}
         root=vertical();root.setBackgroundColor(Color.WHITE);setContentView(root);
         TextView header=text("🔧  Moje Naprawy",25);header.setTextColor(Color.WHITE);header.setBackgroundColor(navy);header.setPadding(20,25,20,25);root.addView(header);
@@ -54,7 +126,7 @@ public class MainActivity extends Activity {
                 d.setOnClickListener(v->{selected=date;show();});}
             week.addView(d,new LinearLayout.LayoutParams(0,-2,1));}}
         LinearLayout actions=new LinearLayout(this);root.addView(actions);actions.addView(button("+ Naprawa",()->repairForm(-1)),new LinearLayout.LayoutParams(0,-2,1));actions.addView(button("Klienci",()->{clientsScreen=true;show();}),new LinearLayout.LayoutParams(0,-2,1));
-        root.addView(button("Kopia zapasowa — eksport / import",()->backupMenu()));
+        root.addView(button("⌂ Menu główne",()->showHome()));\n        root.addView(button("Kopia zapasowa — eksport / import",()->backupMenu()));
         root.addView(text("Kolory:  🟩 opłacone    🟥 nieopłacone    🟪 mieszane",12));
         ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));content=vertical();content.setPadding(12,4,12,12);scroll.addView(content);
         content.addView(text("Naprawy: "+day(selected),19));int count=0;
@@ -118,6 +190,22 @@ public class MainActivity extends Activity {
             }catch(Exception e){showBackupError(e);}
         }
     }
+    @Override public void onBackPressed(){
+        if(currentScreen==SCREEN_HOME){\n            new AlertDialog.Builder(this).setTitle("Zamknąć aplikację?").setMessage("Czy na pewno chcesz zamknąć Moje Naprawy?").setNegativeButton("Anuluj",null).setPositiveButton("Zamknij",(d,w)->finish()).show();\n        }else if(currentScreen==SCREEN_PARTS){
+            clientsScreen=false;
+            show();
+        }else if(currentScreen==SCREEN_CLIENTS){
+            clientsScreen=false;
+            show();
+        }else{
+            new AlertDialog.Builder(this)
+                .setTitle("Zamknąć aplikację?")
+                .setMessage("Czy na pewno chcesz zamknąć Moje Naprawy?")
+                .setNegativeButton("Anuluj",null)
+                .setPositiveButton("Zamknij",(dialog,which)->finish())
+                .show();
+        }
+    }
     void showBackupError(Exception e){new AlertDialog.Builder(this).setTitle("Błąd kopii zapasowej").setMessage(e.getMessage()==null?"Nieznany błąd":e.getMessage()).setPositiveButton("OK",null).show();}
     boolean isPolishHoliday(LocalDate d){
         int y=d.getYear(),m=d.getMonthValue(),n=d.getDayOfMonth();
@@ -128,10 +216,11 @@ public class MainActivity extends Activity {
         return d.equals(easter)||d.equals(easter.plusDays(1))||d.equals(easter.plusDays(49))||d.equals(easter.plusDays(60));
     }
     void showClients(){
+        currentScreen=SCREEN_CLIENTS;
         root=vertical();root.setBackgroundColor(Color.WHITE);setContentView(root);
         TextView header=text("Klienci",24);header.setTextColor(Color.WHITE);header.setBackgroundColor(navy);root.addView(header);
         LinearLayout bar=new LinearLayout(this);root.addView(bar);
-        bar.addView(button("◀ Kalendarz",()->{clientsScreen=false;show();}),new LinearLayout.LayoutParams(0,-2,1));
+        bar.addView(button("◀ Menu główne",()->{clientsScreen=false;showHome();}),new LinearLayout.LayoutParams(0,-2,1));
         bar.addView(button("+ Dodaj klienta",()->clientForm(-1,"","")),new LinearLayout.LayoutParams(0,-2,1));
         EditText search=field("Szukaj klienta lub telefonu","",InputType.TYPE_CLASS_TEXT);root.addView(search);
         ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
@@ -150,6 +239,7 @@ public class MainActivity extends Activity {
         };render.run();search.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){render.run();}public void afterTextChanged(Editable e){}});
     }
     void showParts(long repairId,String device,String client){
+        currentScreen=SCREEN_PARTS;currentRepairId=repairId;currentDevice=device;currentClient=client;
         LinearLayout page=vertical();page.setBackgroundColor(Color.WHITE);setContentView(page);
         TextView title=text("Części — "+device,22);title.setBackgroundColor(navy);title.setTextColor(Color.WHITE);page.addView(title);
         page.addView(text("Klient: "+client,15));
