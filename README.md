@@ -33,7 +33,3 @@ W kalendarzu wybierz **Kopia zapasowa — eksport / import**. Eksport tworzy pli
 
 ## Wersja 1.4 — przycisk Wstecz i ikona
 Przycisk systemowy Wstecz z ekranu części wraca do kalendarza z listą napraw, z listy klientów do kalendarza. Na ekranie głównym pokazuje okno potwierdzenia zamknięcia. Nowa ikona aplikacji znajduje się w `res/mipmap-*`. Zwiększono `versionCode` do 5.
-
-
-## Wersja 1.5
-Nowy ekran startowy z kafelkami: Kalendarz, Klienci, Naprawy, Części, Rozliczenia, Kopia zapasowa, Ustawienia. Przycisk Wstecz na ekranie startowym wyświetla potwierdzenie zamknięcia. Zachowano format kopii i schemat bazy danych.

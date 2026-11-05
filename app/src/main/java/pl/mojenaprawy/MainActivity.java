@@ -126,7 +126,8 @@ public class MainActivity extends Activity {
                 d.setOnClickListener(v->{selected=date;show();});}
             week.addView(d,new LinearLayout.LayoutParams(0,-2,1));}}
         LinearLayout actions=new LinearLayout(this);root.addView(actions);actions.addView(button("+ Naprawa",()->repairForm(-1)),new LinearLayout.LayoutParams(0,-2,1));actions.addView(button("Klienci",()->{clientsScreen=true;show();}),new LinearLayout.LayoutParams(0,-2,1));
-        root.addView(button("⌂ Menu główne",()->showHome()));\n        root.addView(button("Kopia zapasowa — eksport / import",()->backupMenu()));
+        root.addView(button("⌂ Menu główne",()->showHome()));
+        root.addView(button("Kopia zapasowa — eksport / import",()->backupMenu()));
         root.addView(text("Kolory:  🟩 opłacone    🟥 nieopłacone    🟪 mieszane",12));
         ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));content=vertical();content.setPadding(12,4,12,12);scroll.addView(content);
         content.addView(text("Naprawy: "+day(selected),19));int count=0;
@@ -191,19 +192,21 @@ public class MainActivity extends Activity {
         }
     }
     @Override public void onBackPressed(){
-        if(currentScreen==SCREEN_HOME){\n            new AlertDialog.Builder(this).setTitle("Zamknąć aplikację?").setMessage("Czy na pewno chcesz zamknąć Moje Naprawy?").setNegativeButton("Anuluj",null).setPositiveButton("Zamknij",(d,w)->finish()).show();\n        }else if(currentScreen==SCREEN_PARTS){
-            clientsScreen=false;
-            show();
-        }else if(currentScreen==SCREEN_CLIENTS){
-            clientsScreen=false;
-            show();
-        }else{
+        if(currentScreen==SCREEN_HOME){
             new AlertDialog.Builder(this)
                 .setTitle("Zamknąć aplikację?")
                 .setMessage("Czy na pewno chcesz zamknąć Moje Naprawy?")
                 .setNegativeButton("Anuluj",null)
                 .setPositiveButton("Zamknij",(dialog,which)->finish())
                 .show();
+        }else if(currentScreen==SCREEN_PARTS){
+            clientsScreen=false;
+            show();
+        }else if(currentScreen==SCREEN_CLIENTS || currentScreen==SCREEN_CALENDAR || currentScreen==SCREEN_PARTS_INDEX || currentScreen==SCREEN_SETTLEMENTS){
+            clientsScreen=false;
+            showHome();
+        }else{
+            showHome();
         }
     }
     void showBackupError(Exception e){new AlertDialog.Builder(this).setTitle("Błąd kopii zapasowej").setMessage(e.getMessage()==null?"Nieznany błąd":e.getMessage()).setPositiveButton("OK",null).show();}
