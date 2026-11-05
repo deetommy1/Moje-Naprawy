@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
         Button next=button("▶",()->{month=month.plusMonths(1);selected=month.atDay(1);show();});nav.addView(next,new LinearLayout.LayoutParams(0,-2,1));
         LinearLayout stats=vertical();stats.setPadding(14,4,14,4);root.addView(stats);
         try(Cursor c=db.totals(month())){if(c.moveToFirst())stats.addView(text("Naprawy: "+c.getInt(0)+"   Razem: "+money(c.getDouble(1))+"\nZapłacone: "+money(c.getDouble(2))+"   Zaległe: "+money(c.getDouble(1)-c.getDouble(2)),15));}
+        try(Cursor c=db.partsMonthTotals(month())){if(c.moveToFirst())stats.addView(text("Części: "+money(c.getDouble(0))+"   Zaległe za części: "+money(c.getDouble(0)-c.getDouble(1)),14));}
         Map<String,Integer> statuses=new HashMap<>();try(Cursor c=db.dayStatuses(month())){while(c.moveToNext()){int count=c.getInt(1),paidCount=c.getInt(2);statuses.put(c.getString(0),paidCount==count?1:paidCount==0?2:3);}}
         String[] weekdays={"Pn","Wt","Śr","Cz","Pt","So","Nd"};LinearLayout weekdaysRow=new LinearLayout(this);root.addView(weekdaysRow);
         for(String wd:weekdays){TextView w=text(wd,12);if(wd.equals("Nd"))w.setTextColor(Color.RED);w.setGravity(Gravity.CENTER);weekdaysRow.addView(w,new LinearLayout.LayoutParams(0,-2,1));}
@@ -54,6 +55,8 @@ public class MainActivity extends Activity {
         try(Cursor c=db.repairs(day(selected))){while(c.moveToNext()){count++;long id=c.getLong(0);String client=c.getString(1),device=c.getString(2),description=c.getString(3),time=c.getString(5);int mins=c.getInt(6);double amount=c.getDouble(7);boolean paid=c.getInt(8)==1;
             LinearLayout card=vertical();card.setPadding(10,8,10,8);card.setBackgroundColor(Color.rgb(244,247,251));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.bottomMargin=10;content.addView(card,cp);
             card.addView(text(device+" — "+client,18));card.addView(text((time.isEmpty()?"":time+"  •  ")+mins+" min  •  "+money(amount)+"\n"+(paid?"✓ Zapłacone":"● Nieopłacone")+(description.isEmpty()?"":"\n"+description),14));
+            try(Cursor ps=db.partsSummary(id)){if(ps.moveToFirst())card.addView(text("Części: "+money(ps.getDouble(0))+"  •  Do zapłaty: "+money(ps.getDouble(1)),14));}
+            card.addView(button("Lista części",()->showParts(id,device,client)));
             LinearLayout controls=new LinearLayout(this);card.addView(controls);controls.addView(button("Edytuj",()->repairForm(id)),new LinearLayout.LayoutParams(0,-2,1));controls.addView(button(paid?"Cofnij wpłatę":"Zapłacono",()->{db.setPaid(id,!paid);show();}),new LinearLayout.LayoutParams(0,-2,1));
         }}if(count==0)content.addView(text("Brak napraw w tym dniu.",15));
     }
@@ -82,10 +85,42 @@ public class MainActivity extends Activity {
                 found++;LinearLayout card=vertical();card.setPadding(10,8,10,8);card.setBackgroundColor(Color.rgb(244,247,251));
                 LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=10;list.addView(card,lp);
                 card.addView(text(name,19));if(!phone.isEmpty())card.addView(text("Tel.: "+phone,14));
-                try(Cursor stats=db.clientStats(id)){if(stats.moveToFirst())card.addView(text("Naprawy: "+stats.getInt(0)+"   Do zapłaty: "+money(stats.getDouble(1)),14));}
+                try(Cursor stats=db.clientStats(id)){if(stats.moveToFirst()){double due=stats.getDouble(1);try(Cursor pDue=db.clientPartsDue(id)){if(pDue.moveToFirst())due+=pDue.getDouble(0);}card.addView(text("Naprawy: "+stats.getInt(0)+"   Do zapłaty: "+money(due),14));}}
                 card.addView(button("Edytuj klienta",()->clientForm(id,name,phone)));
             }}if(found==0)list.addView(text("Brak klientów spełniających kryteria.",15));
         };render.run();search.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){render.run();}public void afterTextChanged(Editable e){}});
+    }
+    void showParts(long repairId,String device,String client){
+        LinearLayout page=vertical();page.setBackgroundColor(Color.WHITE);setContentView(page);
+        TextView title=text("Części — "+device,22);title.setBackgroundColor(navy);title.setTextColor(Color.WHITE);page.addView(title);
+        page.addView(text("Klient: "+client,15));
+        page.addView(button("◀ Wróć do kalendarza",()->show()));
+        page.addView(button("+ Dodaj część",()->partForm(-1,repairId,"",0,false,device,client)));
+        ScrollView scroll=new ScrollView(this);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));LinearLayout list=vertical();list.setPadding(12,8,12,8);scroll.addView(list);
+        int count=0;
+        try(Cursor c=db.parts(repairId)){while(c.moveToNext()){
+            count++;long id=c.getLong(0);String name=c.getString(1);double amount=c.getDouble(2);boolean paid=c.getInt(3)==1;
+            LinearLayout card=vertical();card.setPadding(8,8,8,8);card.setBackgroundColor(Color.rgb(244,247,251));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=10;list.addView(card,lp);
+            card.addView(text(name+" — "+money(amount),18));card.addView(text(paid?"✓ Zapłacona":"● Nieopłacona",15));
+            LinearLayout actions=new LinearLayout(this);card.addView(actions);
+            actions.addView(button("Edytuj",()->partForm(id,repairId,name,amount,paid,device,client)),new LinearLayout.LayoutParams(0,-2,1));
+            actions.addView(button(paid?"Cofnij wpłatę":"Zapłacono",()->{db.setPartPaid(id,!paid);showParts(repairId,device,client);}),new LinearLayout.LayoutParams(0,-2,1));
+        }}
+        if(count==0)list.addView(text("Nie dodano jeszcze części.",16));
+        try(Cursor c=db.partsSummary(repairId)){if(c.moveToFirst())list.addView(text("Suma części: "+money(c.getDouble(0))+"\nDo zapłaty: "+money(c.getDouble(1)),18));}
+    }
+    void partForm(long id,long repairId,String oldName,double oldAmount,boolean oldPaid,String device,String client){
+        LinearLayout form=vertical();form.setPadding(22,12,22,12);
+        label(form,"Nazwa części");EditText name=field("Np. łożysko 6205",oldName,InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);form.addView(name);
+        label(form,"Kwota do zapłaty przez klienta (zł)");EditText amount=field("0,00",id<0?"":String.valueOf(oldAmount),InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);form.addView(amount);
+        CheckBox paid=new CheckBox(this);paid.setText("Zapłacona przez klienta");paid.setChecked(oldPaid);form.addView(paid);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(id<0?"Dodaj część":"Edytuj część").setView(form).setNegativeButton("Anuluj",null).setPositiveButton("Zapisz",null).create();
+        if(id>=0)dialog.setButton(AlertDialog.BUTTON_NEUTRAL,"Usuń",(d,w)->new AlertDialog.Builder(this).setMessage("Usunąć tę część?").setNegativeButton("Anuluj",null).setPositiveButton("Usuń",(dd,ww)->{db.deletePart(id);showParts(repairId,device,client);}).show());
+        dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{
+            String n=name.getText().toString().trim();if(n.isEmpty()){name.setError("Wpisz nazwę części");return;}
+            double val=Double.parseDouble(amount.getText().toString().trim().replace(',','.'));if(val<0||!Double.isFinite(val))throw new IllegalArgumentException("Nieprawidłowa cena");
+            db.savePart(id,repairId,n,val,paid.isChecked());dialog.dismiss();showParts(repairId,device,client);
+        }catch(Exception ex){Toast.makeText(this,"Sprawdź kwotę części",Toast.LENGTH_LONG).show();}}));dialog.show();
     }
     void clientForm(long id,String oldName,String oldPhone){
         LinearLayout form=vertical();form.setPadding(24,10,24,10);
