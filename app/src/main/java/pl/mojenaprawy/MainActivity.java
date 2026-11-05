@@ -1,6 +1,10 @@
 package pl.mojenaprawy;
 
 import android.app.*;
+import android.content.Intent;
+import android.net.Uri;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import android.os.Bundle;
 import android.database.Cursor;
 import android.graphics.Color;
@@ -16,6 +20,7 @@ import java.util.*;
 public class MainActivity extends Activity {
     Db db; LinearLayout root,content; YearMonth month=YearMonth.now(); LocalDate selected=LocalDate.now();
     boolean clientsScreen=false;
+    private static final int CREATE_BACKUP=601, OPEN_BACKUP=602;
     int navy=Color.rgb(23,45,76), blue=Color.rgb(22,102,187);
     String day(LocalDate d){return d.format(DateTimeFormatter.ISO_LOCAL_DATE);}
     String month(){return month.toString();}
@@ -49,6 +54,7 @@ public class MainActivity extends Activity {
                 d.setOnClickListener(v->{selected=date;show();});}
             week.addView(d,new LinearLayout.LayoutParams(0,-2,1));}}
         LinearLayout actions=new LinearLayout(this);root.addView(actions);actions.addView(button("+ Naprawa",()->repairForm(-1)),new LinearLayout.LayoutParams(0,-2,1));actions.addView(button("Klienci",()->{clientsScreen=true;show();}),new LinearLayout.LayoutParams(0,-2,1));
+        root.addView(button("Kopia zapasowa — eksport / import",()->backupMenu()));
         root.addView(text("Kolory:  🟩 opłacone    🟥 nieopłacone    🟪 mieszane",12));
         ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));content=vertical();content.setPadding(12,4,12,12);scroll.addView(content);
         content.addView(text("Naprawy: "+day(selected),19));int count=0;
@@ -60,6 +66,59 @@ public class MainActivity extends Activity {
             LinearLayout controls=new LinearLayout(this);card.addView(controls);controls.addView(button("Edytuj",()->repairForm(id)),new LinearLayout.LayoutParams(0,-2,1));controls.addView(button(paid?"Cofnij wpłatę":"Zapłacono",()->{db.setPaid(id,!paid);show();}),new LinearLayout.LayoutParams(0,-2,1));
         }}if(count==0)content.addView(text("Brak napraw w tym dniu.",15));
     }
+    void backupMenu(){
+        new AlertDialog.Builder(this).setTitle("Kopia zapasowa")
+            .setMessage("Eksport zapisuje wszystkich klientów, naprawy, części i płatności do pliku JSON.\n\nImport zastępuje aktualne dane danymi z kopii. Przechowuj plik w bezpiecznym miejscu — zawiera dane klientów.")
+            .setPositiveButton("Eksportuj",(d,w)->exportBackup())
+            .setNeutralButton("Importuj",(d,w)->importBackup())
+            .setNegativeButton("Anuluj",null).show();
+    }
+    void exportBackup(){
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE,"MojeNaprawy-kopia-"+LocalDate.now()+".json");
+        startActivityForResult(intent,CREATE_BACKUP);
+    }
+    void importBackup(){
+        Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(intent,OPEN_BACKUP);
+    }
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(resultCode!=RESULT_OK||data==null||data.getData()==null)return;
+        Uri uri=data.getData();
+        if(requestCode==CREATE_BACKUP){
+            try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){
+                if(out==null)throw new IOException("Nie można otworzyć pliku");
+                out.write(Backup.exportData(db).getBytes(StandardCharsets.UTF_8));out.flush();
+                new AlertDialog.Builder(this).setTitle("Kopia zapisana").setMessage("Eksport zakończony. Zachowaj plik poza telefonem, np. na Dysku Google.").setPositiveButton("OK",null).show();
+            }catch(Exception e){showBackupError(e);}
+        }else if(requestCode==OPEN_BACKUP){
+            try(InputStream in=getContentResolver().openInputStream(uri)){
+                if(in==null)throw new IOException("Nie można odczytać pliku");
+                ByteArrayOutputStream bytes=new ByteArrayOutputStream();byte[] buf=new byte[8192];int n;
+                while((n=in.read(buf))!=-1){if(bytes.size()+n>20*1024*1024)throw new IOException("Plik jest zbyt duży (limit 20 MB)");bytes.write(buf,0,n);}
+                final String json=new String(bytes.toByteArray(),StandardCharsets.UTF_8);
+                // Verify format before asking for destructive replacement.
+                org.json.JSONObject meta=new org.json.JSONObject(json);
+                if(!"pl.mojenaprawy.backup".equals(meta.optString("format"))||meta.optInt("version")!=1)throw new IOException("To nie jest obsługiwana kopia Moje Naprawy");
+                int c=meta.getJSONArray("clients").length(),r=meta.getJSONArray("repairs").length(),p=meta.getJSONArray("parts").length();
+                new AlertDialog.Builder(this).setTitle("Przywrócić kopię?")
+                    .setMessage("Kopia zawiera: "+c+" klientów, "+r+" napraw i "+p+" części.\n\nUWAGA: Wszystkie obecne dane w aplikacji zostaną zastąpione. Przed importem warto wykonać eksport obecnych danych.")
+                    .setNegativeButton("Anuluj",null)
+                    .setPositiveButton("Przywróć dane",(d,w)->{
+                        try{int[] counts=Backup.importData(db,json);clientsScreen=false;month=YearMonth.now();selected=LocalDate.now();show();
+                            new AlertDialog.Builder(this).setTitle("Przywrócono dane").setMessage("Klienci: "+counts[0]+"\nNaprawy: "+counts[1]+"\nCzęści: "+counts[2]).setPositiveButton("OK",null).show();
+                        }catch(Exception e){showBackupError(e);}
+                    }).show();
+            }catch(Exception e){showBackupError(e);}
+        }
+    }
+    void showBackupError(Exception e){new AlertDialog.Builder(this).setTitle("Błąd kopii zapasowej").setMessage(e.getMessage()==null?"Nieznany błąd":e.getMessage()).setPositiveButton("OK",null).show();}
     boolean isPolishHoliday(LocalDate d){
         int y=d.getYear(),m=d.getMonthValue(),n=d.getDayOfMonth();
         if((m==1&&(n==1||n==6))||(m==5&&(n==1||n==3))||(m==8&&n==15)||(m==11&&(n==1||n==11))||(m==12&&(n==25||n==26||(n==24&&y>=2025))))return true;

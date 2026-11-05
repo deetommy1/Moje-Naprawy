@@ -26,3 +26,6 @@ Natywna aplikacja Android, dane lokalnie w SQLite, bez internetu, konta i reklam
 
 ## Wersja 1.2 — części do napraw
 W widoku dnia przy każdej naprawie przycisk „Lista części”. Można dodać, edytować i usunąć część, wpisać kwotę należną od klienta oraz niezależnie oznaczyć płatność. Statusy części są uwzględnione w kolorze dnia. Migracja bazy SQLite 1→2 zachowuje klientów i naprawy.
+
+## Wersja 1.3 — kopie zapasowe
+W kalendarzu wybierz **Kopia zapasowa — eksport / import**. Eksport tworzy plik JSON zawierający klientów, naprawy, części oraz statusy płatności. Import zastępuje zawartość lokalnej bazy; najpierw sprawdza format i spójność referencji, a zapis wykonuje w transakcji SQLite. Używa systemowego wyboru pliku Androida (SAF), nie wymaga uprawnień do pamięci. Plik zawiera dane klientów w postaci niezaszyfrowanej — przechowuj go prywatnie.
