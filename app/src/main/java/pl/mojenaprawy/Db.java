@@ -12,9 +12,12 @@ public class Db extends SQLiteOpenHelper {
     }
     @Override public void onUpgrade(SQLiteDatabase db,int oldV,int newV) {}
     public long addClient(String name,String phone) { ContentValues v=new ContentValues(); v.put("name",name); v.put("phone",phone); return getWritableDatabase().insert("clients",null,v); }
+    public void updateClient(long id,String name,String phone){ContentValues v=new ContentValues();v.put("name",name);v.put("phone",phone);getWritableDatabase().update("clients",v,"id=?",new String[]{String.valueOf(id)});}
     public Cursor clients(){ return getReadableDatabase().rawQuery("SELECT id,name,phone FROM clients ORDER BY name COLLATE NOCASE",null); }
     public Cursor repairs(String day){ return getReadableDatabase().rawQuery("SELECT r.id,c.name,r.device,r.description,r.day,r.start_time,r.minutes,r.amount,r.paid FROM repairs r JOIN clients c ON c.id=r.client_id WHERE r.day=? ORDER BY r.start_time",new String[]{day}); }
     public Cursor repair(long id){return getReadableDatabase().rawQuery("SELECT client_id,device,description,day,start_time,minutes,amount,paid FROM repairs WHERE id=?",new String[]{String.valueOf(id)});}
+    public Cursor dayStatuses(String month){return getReadableDatabase().rawQuery("SELECT day,COUNT(*),SUM(CASE WHEN paid=1 THEN 1 ELSE 0 END) FROM repairs WHERE day LIKE ? GROUP BY day",new String[]{month+"%"});}
+    public Cursor clientStats(long id){return getReadableDatabase().rawQuery("SELECT COUNT(*),COALESCE(SUM(CASE WHEN paid=0 THEN amount ELSE 0 END),0) FROM repairs WHERE client_id=?",new String[]{String.valueOf(id)});}
     public Cursor days(String month){return getReadableDatabase().rawQuery("SELECT DISTINCT day FROM repairs WHERE day LIKE ?",new String[]{month+"%"});}
     public Cursor totals(String month){return getReadableDatabase().rawQuery("SELECT COUNT(*),COALESCE(SUM(amount),0),COALESCE(SUM(CASE WHEN paid=1 THEN amount ELSE 0 END),0) FROM repairs WHERE day LIKE ?",new String[]{month+"%"});}
     public void saveRepair(long id,long client,String device,String description,String day,String time,int minutes,double amount,boolean paid){ContentValues v=new ContentValues();v.put("client_id",client);v.put("device",device);v.put("description",description);v.put("day",day);v.put("start_time",time);v.put("minutes",minutes);v.put("amount",amount);v.put("paid",paid?1:0);if(id<0)getWritableDatabase().insert("repairs",null,v);else getWritableDatabase().update("repairs",v,"id=?",new String[]{String.valueOf(id)});}
